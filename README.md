@@ -1,5 +1,4 @@
-```markdown
-# WGPUonMetal
+# MetallicWGPU
 
 A project to learn and experiment with [WGPU](https://wgpu.rs) on Apple's Metal API. This repository provides a learning environment for exploring WGPU's capabilities while leveraging Metal's backend.
 
@@ -56,4 +55,3 @@ Visit the official [WGPU website](https://wgpu.rs) for documentation, tutorials,
 
 ## License
 This project is licensed under MIT. See `LICENSE` for details.
-```
