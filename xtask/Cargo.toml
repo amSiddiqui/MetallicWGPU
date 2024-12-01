@@ -1,0 +1,15 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cargo_metadata = "0.19.0"
+http = "1.1.0"
+tokio = {version = "1.41.1", features = ["full"]}
+wasm-bindgen-cli = "0.2.97"
+
+
+[[bin]]
+name = "xtask"
+path = "src/main.rs"
