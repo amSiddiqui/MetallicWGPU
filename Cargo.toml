@@ -10,7 +10,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+bytemuck = "1.20.0"
 cfg-if = "1.0.0"
+flume = "0.11.1"
 log = "0.4.22"
 pollster = "0.4.0"
 wgpu = { version = "23.0.1", features = ["metal", "wgsl"] }
