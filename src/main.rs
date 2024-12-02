@@ -24,6 +24,7 @@ async fn run() {
 async fn execute_gpu(numbers: &[u32]) -> Option<Vec<u32>> {
     let instance = wgpu::Instance::default();
 
+    // get connection to the GPU
     let adapter = instance
         .request_adapter(&wgpu::RequestAdapterOptions::default())
         .await?;
@@ -49,10 +50,12 @@ async fn execute_gpu_inner(
     queue: &wgpu::Queue,
     numbers: &[u32],
 ) -> Option<Vec<u32>> {
+    // Loading shader
     let cs_module = device.create_shader_module(wgpu::include_wgsl!("shader.wsgl"));
 
     let size = size_of_val(numbers) as wgpu::BufferAddress;
 
+    // Instantiate Staging buffer. We will use this to copy results from GPU
     let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
         size,
@@ -60,6 +63,7 @@ async fn execute_gpu_inner(
         mapped_at_creation: false,
     });
 
+    // Instantiate storage buffer. Store the numbers array in a buffer. bytemuck cast the reference of our vec
     let storage_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
         label: Some("Storage Buffer"),
         contents: bytemuck::cast_slice(numbers),
@@ -68,6 +72,7 @@ async fn execute_gpu_inner(
             | wgpu::BufferUsages::COPY_SRC,
     });
 
+    // Compute pipeline specifies the operations of the shader 
     let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
         label: None,
         layout: None,
@@ -77,6 +82,7 @@ async fn execute_gpu_inner(
         cache: None,
     });
 
+    // Bind groups are GPU resources. We are making our storage buffer available through this bind group
     let bind_group_layout = compute_pipeline.get_bind_group_layout(0);
 
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -88,6 +94,7 @@ async fn execute_gpu_inner(
         }],
     });
 
+    // Preparing GPU instructions through encoder. We dispatch numbers.len() threads in GPU to compute
     let mut encoder =
         device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     {
@@ -102,18 +109,21 @@ async fn execute_gpu_inner(
         cpass.dispatch_workgroups(numbers.len() as u32, 1, 1);
     }
 
+    // Copy results from storage buffer to staging buffer
     encoder.copy_buffer_to_buffer(&storage_buffer, 0, &staging_buffer, 0, size);
 
     queue.submit(Some(encoder.finish()));
 
     let buffer_slice = staging_buffer.slice(..);
 
+    // Using flume to notify when the read has completed. Waiting for GPU instructions to complete
     let (sender, receiver) = flume::bounded(1);
     buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
 
     device.poll(wgpu::Maintain::wait()).panic_on_timeout();
 
     if let Ok(Ok(())) = receiver.recv_async().await {
+        // Once the read has completed cast the slice back to u32 and drop the buffer
         let data = buffer_slice.get_mapped_range();
 
         let result = bytemuck::cast_slice(&data).to_vec();
